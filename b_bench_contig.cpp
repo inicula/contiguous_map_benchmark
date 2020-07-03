@@ -13,7 +13,7 @@ auto generate_pairs(size_t N)
   return res;
 }
 
-const auto global_pairs = generate_pairs(11000);
+const auto global_pairs = generate_pairs(50000000);
 
 static void BM_rand(benchmark::State& state)
 {
@@ -88,6 +88,41 @@ static void BM_std_insert(benchmark::State& state)
   state.SetLabel(std::to_string(bytes / 1024) + "kB");
 }
 
+static void BM_contig_iterate(benchmark::State& state)
+{
+  const long count = state.range(0);
+  const long bytes = state.range(0) * 2 * long(sizeof(int));
+  ContiguousMap<int, int> my_map(global_pairs.cbegin(),
+                                 global_pairs.cbegin() + count);
+  for(auto _ : state)
+  {
+    for(const auto& el : my_map)
+    {
+      auto var = el.second;
+      benchmark::DoNotOptimize(var);
+    }
+  }
+  state.SetBytesProcessed(long(state.iterations()) * bytes);
+  state.SetLabel(std::to_string(bytes / 1024) + "kB");
+}
+
+static void BM_std_iterate(benchmark::State& state)
+{
+  const long count = state.range(0);
+  const long bytes = state.range(0) * 2 * long(sizeof(int));
+  std::map<int, int> std_map(global_pairs.cbegin(),
+                             global_pairs.cbegin() + count);
+  for(auto _ : state)
+  {
+    for(const auto& el : std_map)
+    {
+      auto var = el.second;
+      benchmark::DoNotOptimize(var);
+    }
+  }
+  state.SetBytesProcessed(long(state.iterations()) * bytes);
+  state.SetLabel(std::to_string(bytes / 1024) + "kB");
+}
 BENCHMARK(BM_contig_insert)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
@@ -112,5 +147,15 @@ BENCHMARK(BM_rand)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(3000, 10000);
+
+BENCHMARK(BM_contig_iterate)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(1 << 17, 1 << 21);
+
+BENCHMARK(BM_std_iterate)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(1 << 17, 1 << 21);
 
 BENCHMARK_MAIN();
