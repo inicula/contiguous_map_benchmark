@@ -15,6 +15,20 @@ auto generate_pairs(size_t N)
 
 const auto global_pairs = generate_pairs(11000);
 
+static void BM_rand(benchmark::State& state)
+{
+  const long count = state.range(0);
+  const auto iterations = 3 * count;
+  for(auto _ : state)
+  {
+    for(size_t i = 0; i < iterations; ++i)
+    {
+      auto val = std::rand();
+      benchmark::DoNotOptimize(val);
+    }
+  }
+}
+
 static void BM_std_search(benchmark::State& state)
 {
   const long count = state.range(0);
@@ -90,6 +104,11 @@ BENCHMARK(BM_contig_serach)
     ->Range(3000, 10000);
 
 BENCHMARK(BM_std_search)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(3000, 10000);
+
+BENCHMARK(BM_rand)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(3000, 10000);
