@@ -1,5 +1,6 @@
-#include "benchmark.h"
+#include <benchmark/benchmark.h>
 #include "ContiguousMap.h"
+#include <iostream>
 #include <random>
 
 auto generate_pairs(size_t N)
@@ -11,6 +12,15 @@ auto generate_pairs(size_t N)
     res.push_back(std::make_pair(std::rand(), std::rand()));
   }
   return res;
+}
+
+void insert_individually(auto&& container, auto&& it1, auto&& it2)
+{
+  while(it1 != it2)
+  {
+    container.insert(*it1);
+    ++it1;
+  }
 }
 
 const auto global_pairs = generate_pairs(50000000);
@@ -47,8 +57,7 @@ static void BM_std_search(benchmark::State& state)
 static void BM_contig_serach(benchmark::State& state)
 {
   const long count = state.range(0);
-  ContiguousMap<int, int> my_map(global_pairs.cbegin(),
-                                 global_pairs.cbegin() + count);
+  ContiguousMap<int, int> my_map(global_pairs.cbegin(), global_pairs.cbegin() + count);
   const auto iterations = 3 * count;
   for(auto _ : state)
   {
@@ -67,7 +76,7 @@ static void BM_contig_insert(benchmark::State& state)
   for(auto _ : state)
   {
     ContiguousMap<int, int> my_map;
-    my_map.insert(global_pairs.cbegin(), global_pairs.cbegin() + count);
+    insert_individually(my_map, global_pairs.cbegin(), global_pairs.cbegin() + count);
     benchmark::DoNotOptimize(my_map);
   }
   state.SetBytesProcessed(long(state.iterations()) * bytes);
@@ -81,7 +90,43 @@ static void BM_std_insert(benchmark::State& state)
   for(auto _ : state)
   {
     std::map<int, int> std_map;
-    std_map.insert(global_pairs.cbegin(), global_pairs.cbegin() + count);
+    insert_individually(std_map, global_pairs.cbegin(), global_pairs.cbegin() + count);
+    benchmark::DoNotOptimize(std_map);
+  }
+  state.SetBytesProcessed(long(state.iterations()) * bytes);
+  state.SetLabel(std::to_string(bytes / 1024) + "kB");
+}
+
+static void BM_contig_delete(benchmark::State& state)
+{
+  const long count = state.range(0);
+  const long bytes = state.range(0) * 2 * long(sizeof(int));
+  for(auto _ : state)
+  {
+    ContiguousMap<int, int> my_map;
+    insert_individually(my_map, global_pairs.cbegin(), global_pairs.cbegin() + count);
+    while(my_map.size() > 0)
+    {
+      my_map.erase(my_map.begin());
+    }
+    benchmark::DoNotOptimize(my_map);
+  }
+  state.SetBytesProcessed(long(state.iterations()) * bytes);
+  state.SetLabel(std::to_string(bytes / 1024) + "kB");
+}
+
+static void BM_std_delete(benchmark::State& state)
+{
+  const long count = state.range(0);
+  const long bytes = state.range(0) * 2 * long(sizeof(int));
+  for(auto _ : state)
+  {
+    std::map<int, int> std_map;
+    insert_individually(std_map, global_pairs.cbegin(), global_pairs.cbegin() + count);
+    while(!std_map.empty())
+    {
+      std_map.erase(std_map.begin());
+    }
     benchmark::DoNotOptimize(std_map);
   }
   state.SetBytesProcessed(long(state.iterations()) * bytes);
@@ -92,8 +137,7 @@ static void BM_contig_iterate(benchmark::State& state)
 {
   const long count = state.range(0);
   const long bytes = state.range(0) * 2 * long(sizeof(int));
-  ContiguousMap<int, int> my_map(global_pairs.cbegin(),
-                                 global_pairs.cbegin() + count);
+  ContiguousMap<int, int> my_map(global_pairs.cbegin(), global_pairs.cbegin() + count);
   for(auto _ : state)
   {
     for(const auto& el : my_map)
@@ -110,8 +154,7 @@ static void BM_std_iterate(benchmark::State& state)
 {
   const long count = state.range(0);
   const long bytes = state.range(0) * 2 * long(sizeof(int));
-  std::map<int, int> std_map(global_pairs.cbegin(),
-                             global_pairs.cbegin() + count);
+  std::map<int, int> std_map(global_pairs.cbegin(), global_pairs.cbegin() + count);
   for(auto _ : state)
   {
     for(const auto& el : std_map)
@@ -123,6 +166,9 @@ static void BM_std_iterate(benchmark::State& state)
   state.SetBytesProcessed(long(state.iterations()) * bytes);
   state.SetLabel(std::to_string(bytes / 1024) + "kB");
 }
+
+BENCHMARK(BM_rand)->Unit(benchmark::kMillisecond)->RangeMultiplier(2)->Range(3000, 10000);
+
 BENCHMARK(BM_contig_insert)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
@@ -133,17 +179,22 @@ BENCHMARK(BM_std_insert)
     ->RangeMultiplier(2)
     ->Range(3000, 10000);
 
+BENCHMARK(BM_contig_delete)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(10000, 50000);
+
+BENCHMARK(BM_std_delete)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(10000, 50000);
+
 BENCHMARK(BM_contig_serach)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(3000, 10000);
 
 BENCHMARK(BM_std_search)
-    ->Unit(benchmark::kMillisecond)
-    ->RangeMultiplier(2)
-    ->Range(3000, 10000);
-
-BENCHMARK(BM_rand)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(3000, 10000);
